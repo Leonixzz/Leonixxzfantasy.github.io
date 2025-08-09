@@ -1,82 +1,80 @@
-let player = {
-    name: "",
-    class: "",
-    hp: 100,
-    mp: 50,
-    inventory: [],
-    gold: 0
-};
 
-function startGame() {
-    document.getElementById("menu").style.display = "none";
-    document.getElementById("game").style.display = "block";
-    intro();
-}
+// Compact v7 prototype main script (loads data, provides UI and mechanics)
+const SAVE_KEY = 'fantasy-v7-save-v1';
+let DATA = {items:{}, monsters:{}, schools:{}, rumors:{}, tutorial:{}};
+let state = null;
 
-function intro() {
-    setOutput("Welcome to the Fantasy RPG!<br>First, choose your class.");
-    setActions([
-        { text: "Knight", action: () => chooseClass("Knight") },
-        { text: "Mage", action: () => chooseClass("Mage") },
-        { text: "Thief", action: () => chooseClass("Thief") }
-    ]);
-}
+Promise.all([fetch('data/items.json').then(r=>r.json()), fetch('data/monsters.json').then(r=>r.json()), fetch('data/schools.json').then(r=>r.json()), fetch('data/rumors.json').then(r=>r.json()), fetch('data/tutorial.json').then(r=>r.json())]).then(([it,mo,sc,ru,tu])=>{DATA.items=it; DATA.monsters=mo; DATA.schools=sc; DATA.rumors=ru; DATA.tutorial=tu; init();});
 
-function chooseClass(chosenClass) {
-    player.class = chosenClass;
-    setOutput(`You are now a ${chosenClass}. Let’s start your adventure!`);
-    setActions([
-        { text: "Go to Battle", action: battleTutorial },
-        { text: "Open Inventory", action: inventoryTutorial }
-    ]);
-}
+function init(){ const s = localStorage.getItem(SAVE_KEY); if(s){ state = JSON.parse(s); } else { state = {screen:'menu', player:{name:'',race:null,class:null,level:1,exp:0,gold:100,stats:{HP:100,MP:50,STR:10,DEX:10,CON:10,INT:10,WIS:10,SPD:10},inventory:{'Minor Health Potion':2},skills:[],mapUnlocked:['area1'],journal:[],memoryLog:[]}, tutorialStep:0, currentEncounter:null, merrickCooldown:0}; } render(); }
 
-function battleTutorial() {
-    setOutput("Combat Tutorial: Choose Attack to damage enemies, Defend to reduce damage, Skills for special moves, and Items to heal or buff.");
-    setActions([
-        { text: "Attack", action: () => battleAction("attack") },
-        { text: "Defend", action: () => battleAction("defend") },
-        { text: "Skills", action: () => battleAction("skill") },
-        { text: "Items", action: () => battleAction("item") }
-    ]);
-}
+function save(){ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
+function $(id){return document.getElementById(id);}
+function clearApp(){ const app = document.getElementById('app'); app.innerHTML=''; return app; }
+function nav(s){ state.screen = s; save(); render(); }
 
-function battleAction(action) {
-    setOutput(`You chose to ${action}. (This is a placeholder combat system.)`);
-}
+function render(){ const app = clearApp(); const panel = document.createElement('div'); panel.className='panel'; app.appendChild(panel); renderHUD(panel); if(state.screen==='menu') renderMenu(panel); else if(state.screen==='intro') renderIntro(panel); else if(state.screen==='create') renderCreate(panel); else if(state.screen==='world') renderWorld(panel); else if(state.screen==='map') renderMap(panel); else if(state.screen==='combat') renderCombat(panel); else if(state.screen==='town') renderTown(panel); else if(state.screen==='inventory') renderInventory(panel); else if(state.screen==='character') renderCharacter(panel); else if(state.screen==='dev') renderDev(panel); save(); }
 
-function inventoryTutorial() {
-    setOutput("Inventory Tutorial: You can equip items to boost your stats or use them in battle. Some items can be crafted from materials.");
-    setActions([
-        { text: "Back", action: chooseClass.bind(null, player.class) }
-    ]);
-}
+function renderHUD(container){ const top=document.createElement('div'); top.className='topbar'; const title=document.createElement('div'); title.innerHTML='<strong>Fantasy RPG — v7</strong>'; const hud=document.createElement('div'); hud.className='hud'; const gold=document.createElement('div'); gold.className='small'; gold.textContent='Gold: '+state.player.gold+'G'; const btns=document.createElement('div'); btns.className='buttons'; ['Inventory','Stats','Map','Home'].forEach(t=>{ const b=document.createElement('button'); b.textContent=t; b.onclick=()=>{ if(t==='Inventory') nav('inventory'); if(t==='Stats') nav('character'); if(t==='Map') nav('map'); if(t==='Home') nav('world'); }; btns.appendChild(b); }); hud.appendChild(gold); hud.appendChild(btns); top.appendChild(title); top.appendChild(hud); container.appendChild(top); }
 
-function setOutput(text) {
-    document.getElementById("output").innerHTML = text;
-}
+function renderMenu(container){ const h=document.createElement('h1'); h.textContent='🌌 Fantasy RPG (v7)'; container.appendChild(h); const newBtn=document.createElement('button'); newBtn.textContent='New Game'; newBtn.onclick=()=>nav('intro'); const cont=document.createElement('button'); cont.textContent='Continue'; cont.onclick=()=>nav('world'); const imp=document.createElement('button'); imp.textContent='Import Save'; imp.onclick=importSave; const exp=document.createElement('button'); exp.textContent='Export Save'; exp.onclick=exportSave; container.appendChild(newBtn); container.appendChild(cont); container.appendChild(imp); container.appendChild(exp); const note=document.createElement('div'); note.className='small'; note.textContent='Tip: Meet Isaac in the City to begin the tutorial.'; container.appendChild(note); }
 
-function setActions(actions) {
-    const container = document.getElementById("actions");
-    container.innerHTML = "";
-    actions.forEach(a => {
-        let btn = document.createElement("button");
-        btn.textContent = a.text;
-        btn.onclick = a.action;
-        container.appendChild(btn);
-    });
-}
+function renderIntro(container){ const h=document.createElement('h2'); h.textContent='A Story in Two Paragraphs'; container.appendChild(h); const p=document.createElement('div'); p.className='zone'; p.innerHTML = '<p><em>The world of Aeloria was forged in flame and shadow, its lands carved by titans long forgotten. Across the realms, kingdoms rise and fall like the tides, and ancient powers stir in the dark corners of the earth. Heroes are not born here—they are made, shaped by steel, magic, and the choices they dare to make.</em></p><p><em>Now, a great wind sweeps across the land, carrying whispers of war and treasures untold. Monsters stalk the roads, rumors speak of lost cities and cursed relics, and the balance between light and darkness teeters on the edge. In this age of uncertainty, a new name will be written into the annals of history… yours.</em></p>'; container.appendChild(p); const cont=document.createElement('button'); cont.textContent='Continue'; cont.onclick=()=>nav('create'); const skip=document.createElement('button'); skip.textContent='Skip Intro'; skip.onclick=()=>nav('create'); container.appendChild(cont); container.appendChild(skip); }
 
-function saveGame() {
-    localStorage.setItem("rpgSave", JSON.stringify(player));
-}
+function renderCreate(container){ const h=document.createElement('h2'); h.textContent='Character Creation'; container.appendChild(h); const nameLabel=document.createElement('div'); nameLabel.className='small'; nameLabel.textContent='Enter your name:'; const nameInput=document.createElement('input'); nameInput.value=state.player.name; nameInput.oninput=(e)=>state.player.name=e.target.value; container.appendChild(nameLabel); container.appendChild(nameInput); const raceDiv=document.createElement('div'); raceDiv.className='zone'; raceDiv.innerHTML='<strong>Choose Race</strong>'; ['Human','Elf','Dwarf','Orc'].forEach(r=>{ const b=document.createElement('button'); b.textContent=r; b.onclick=()=>{ state.player.race=r; // small stat shifts
+    if(r==='Human'){ state.player.stats.CHA +=2; state.player.stats.SPD +=2; } if(r==='Elf'){ state.player.stats.DEX +=2; state.player.stats.INT +=2; state.player.stats.WIS +=1; } if(r==='Dwarf'){ state.player.stats.STR +=2; state.player.stats.CON +=3; } if(r==='Orc'){ state.player.stats.STR +=3; state.player.stats.DEX +=2; } save(); render(); }; raceDiv.appendChild(b); }); container.appendChild(raceDiv); const classDiv=document.createElement('div'); classDiv.className='zone'; classDiv.innerHTML='<strong>Choose Class</strong>'; const classes={'Knight':'Bash','Mage':'Mana Ball','Thief':'Stab','Archer':'Double Shot'}; Object.keys(classes).forEach(c=>{ const b=document.createElement('button'); b.textContent=c; b.onclick=()=>{ state.player.class=c; state.player.skills=[{name:classes[c],power:12,desc:'Starter skill'}]; save(); render(); }; classDiv.appendChild(b); }); container.appendChild(classDiv); const start=document.createElement('button'); start.textContent='Begin Adventure'; start.onclick=()=>{ if(!state.player.name) state.player.name='Traveler'; state.player.level=1; state.tutorialStep=0; nav('world'); }; container.appendChild(start); }
 
-function loadGame() {
-    let data = localStorage.getItem("rpgSave");
-    if (data) {
-        player = JSON.parse(data);
-        startGame();
-    } else {
-        alert("No save found!");
-    }
-}
+function renderWorld(container){ const h=document.createElement('h2'); h.textContent='City of Beginnings'; container.appendChild(h); const zone=document.createElement('div'); zone.className='zone'; zone.innerHTML='<strong>Inn & Market</strong><div class="small">Meet Isaac, visit vendors, and prepare.</div>'; const isaacBtn=document.createElement('button'); isaacBtn.textContent='Meet Isaac (Tutorial)'; isaacBtn.onclick=()=>{ alert('Isaac: Welcome. Open the map and travel to Area 1 to learn about danger colors and stealth.'); state.tutorialStep=1; state.player.journal.push({when:Date.now(),text:'Met Isaac',cred:'green',source:'Isaac'}); save(); }; const shopBtn=document.createElement('button'); shopBtn.textContent='Visit Vendor'; shopBtn.onclick=()=>nav('town'); zone.appendChild(isaacBtn); zone.appendChild(shopBtn); container.appendChild(zone); const rumorDiv=document.createElement('div'); rumorDiv.className='zone'; rumorDiv.innerHTML='<strong>Local Rumors</strong>'; const pool = DATA.rumors['City of Beginnings'] || []; if(pool.length){ const r = pool[Math.floor(Math.random()*pool.length)]; const el=document.createElement('div'); el.className='small'; el.textContent=(r.cred==='gray'? '(Uncertain) ': '') + r.text; rumorDiv.appendChild(el); state.player.journal.push({when:Date.now(),text:r.text,cred:r.cred,source:'Town Crier'}); save(); } container.appendChild(rumorDiv); }
+
+function renderMap(container){ container.innerHTML=''; const h=document.createElement('h2'); h.textContent='World Map'; container.appendChild(h); Object.keys(DATA.monsters).forEach(area=>{ const sample = DATA.monsters[area][0]; const z = document.createElement('div'); z.className='zone'; const unlocked = state.player.mapUnlocked.includes(area); z.innerHTML = `<strong>${area} — ${sample.description.split('.')[0]}</strong><div class='small'>Monsters: ${DATA.monsters[area].map(m=>m.name).join(', ')}</div>`; const scout=document.createElement('button'); scout.textContent='Scout (Risk)'; scout.onclick=()=>{ alert(area + ' — Risk: ' + calcRisk(area) + '%'); }; const travel=document.createElement('button'); travel.textContent='Travel'; travel.onclick=()=>{ if(state.tutorialStep===1 && area==='area1'){ startTutorialBattle(area); return; } if(!unlocked){ if(!confirm('This area is locked. Travel anyway?')) return; } if(checkMerrickSpawn()){ meetMerrick(); return; } startAreaEncounter(area); }; if(!unlocked) travel.classList.add('locked'); z.appendChild(scout); z.appendChild(travel); container.appendChild(z); }); const back=document.createElement('button'); back.textContent='Back'; back.onclick=()=>nav('world'); container.appendChild(back); }
+
+function calcRisk(area){ const level = state.player.level; const m = DATA.monsters[area][Math.floor(Math.random()*DATA.monsters[area].length)]; const score = m.hp + m.atk*5 + (m.def||0)*8; const base = Math.min(95,Math.max(10, Math.round((score/(level*100))*100))); const thiefBonus = state.player.class==='Thief' ? Math.round(state.player.level*1.5) : 0; return Math.max(5, base - thiefBonus); }
+
+function checkMerrickSpawn(){ const base = 15 + (state.merrickCooldown||0); const roll = Math.random()*100; if(roll < base){ state.merrickCooldown = 0; save(); return true; } state.merrickCooldown = Math.min(50, (state.merrickCooldown||0)+5); save(); return false; }
+
+function meetMerrick(){ const app = clearApp(); const panel = document.createElement('div'); panel.className='panel'; app.appendChild(panel); renderHUD(panel); const h=document.createElement('h2'); h.textContent='Merrick the Wanderer'; panel.appendChild(h); const txt=['A hooded figure leans against a weathered cart.','Merrick's wagon creaks under the weight of goods.','A faint whistle draws your attention to a lone traveler.']; const line = txt[Math.floor(Math.random()*txt.length)]; const p=document.createElement('div'); p.className='zone'; p.innerHTML=`<div class='small'>${line}<br><em>Merrick: "Care to see my wares?"</em></div>`; panel.appendChild(p); // build stock
+  const keys = Object.keys(DATA.items); const mats = keys.filter(k=>DATA.items[k].type==='material'); const gear = keys.filter(k=>DATA.items[k].type==='weapon' || DATA.items[k].type==='armor' || DATA.items[k].type==='accessory'); const stock = []; for(let i=0;i<2;i++){ stock.push(mats[Math.floor(Math.random()*mats.length)]); } for(let i=0;i<3;i++){ stock.push(gear[Math.floor(Math.random()*gear.length)]); } // maybe give rumor
+  if(Math.random() < 0.6){ const r = pickRumor(); state.player.journal.push({when:Date.now(),text:r.text,cred:r.cred,source:'Merrick'}); save(); }
+  const shopDiv = document.createElement('div'); shopDiv.className='zone'; shopDiv.innerHTML='<strong>Merrick\'s Stock</strong>'; stock.forEach(name=>{ const def = DATA.items[name]; const price = Math.ceil(def.base_price * rarityMultiplier(def.rarity||'common') * 0.85); const row = document.createElement('div'); row.className='small'; row.innerHTML = `${name} (${def.rarity||'common'}) - ${price}G - ${def.desc||''}`; const buy = document.createElement('button'); buy.textContent='Buy'; buy.onclick=()=>{ if(state.player.gold >= price){ state.player.gold -= price; state.player.inventory[name] = (state.player.inventory[name]||0)+1; alert('Purchased '+name); save(); render(); } else alert('Not enough gold'); }; row.appendChild(buy); shopDiv.appendChild(row); }); panel.appendChild(shopDiv); const leave=document.createElement('button'); leave.textContent='Leave'; leave.onclick=()=>nav('world'); panel.appendChild(leave); }
+
+function pickRumor(){ const towns = Object.keys(DATA.rumors); const town = towns[Math.floor(Math.random()*towns.length)]; const pool = DATA.rumors[town]; return pool[Math.floor(Math.random()*pool.length)]; }
+
+function rarityMultiplier(r){ if(r==='common') return 1.0; if(r==='uncommon') return 1.3; if(r==='rare') return 1.7; if(r==='epic') return 2.3; if(r==='legend') return 3.0; return 1.0; }
+
+function startAreaEncounter(area){ const pool = DATA.monsters[area]; const m = JSON.parse(JSON.stringify(pool[Math.floor(Math.random()*pool.length)])); m.currentHP = m.hp; state.currentEncounter = {zone:area, monster:m, tutorial:false}; nav('combat'); }
+function startTutorialBattle(area){ const m = JSON.parse(JSON.stringify(DATA.monsters[area][0])); m.currentHP = m.hp; state.currentEncounter = {zone:area, monster:m, tutorial:true}; nav('combat'); }
+
+function attemptStealth(area){ const pool = DATA.monsters[area]; const candidate = pool[Math.floor(Math.random()*pool.length)]; if(candidate.behavior==='passive') return {success:true, monster:candidate}; if(candidate.behavior==='aggressive') return {success:false, monster:candidate}; const base=60; const thiefMod = state.player.class==='Thief'? state.player.level*2 : Math.floor(state.player.level); const chance = Math.min(95, base+thiefMod); const roll = Math.random()*100; return {success: roll < chance, monster: candidate}; }
+
+function renderCombat(container){ const enc = state.currentEncounter; if(!enc){ nav('world'); return; } container.innerHTML=''; const h=document.createElement('h2'); const dc = dangerColor(enc.monster); const tag = enc.monster.behavior==='boss' ? '⚫' : (dc==='green'?'🟢':dc==='yellow'?'🟡':dc==='orange'?'🟠':'🔴'); h.textContent = tag + ' ' + enc.monster.name; container.appendChild(h); const ann=document.createElement('div'); ann.className='zone'; ann.innerHTML = `<div class='small'>${enc.monster.description}</div>`; container.appendChild(ann); const status=document.createElement('div'); status.className='zone'; status.innerHTML = `<div class='small'>Player: ${state.player.name} — HP: ${state.player.stats.HP} | MP: ${state.player.stats.MP}</div><div class='small'>Enemy: ${enc.monster.currentHP}/${enc.monster.hp}</div>`; container.appendChild(status); const act=document.createElement('div'); act.className='zone'; const atk=document.createElement('button'); atk.textContent='Attack'; atk.onclick=playerAttack; const def=document.createElement('button'); def.textContent='Defend'; def.onclick=playerDefend; const skl=document.createElement('button'); skl.textContent='Skill'; skl.onclick=playerSkill; const itm=document.createElement('button'); itm.textContent='Use Item'; itm.onclick=()=>nav('inventory'); act.appendChild(atk); act.appendChild(def); act.appendChild(skl); act.appendChild(itm); container.appendChild(act); const log=document.createElement('div'); log.className='logbox'; log.id='combat-log'; log.innerHTML='<strong>Combat Log</strong><br>'; container.appendChild(log); const flee=document.createElement('button'); flee.textContent='Flee'; flee.onclick=()=>{ if(enc.tutorial){ alert('You fled to the city.'); state.currentEncounter=null; nav('world'); } else { if(confirm('Flee and return to town?')){ state.currentEncounter=null; nav('world'); } } }; container.appendChild(flee); }
+
+function dangerColor(mon){ if(mon.behavior==='boss') return 'purple'; const score = mon.hp + mon.atk*5 + (mon.def||0)*8; const threshold = state.player.level * 100; if(score <= threshold*0.9) return 'green'; if(score <= threshold*1.1) return 'yellow'; if(score <= threshold*1.3) return 'orange'; return 'red'; }
+
+function addLog(txt){ const el=document.getElementById('combat-log'); if(el) el.innerHTML += '<div class="small">• '+txt+'</div>'; }
+
+function playerAttack(){ const enc = state.currentEncounter; const dmg = Math.max(1, Math.floor((state.player.stats.STR||10)/2 + Math.random()*6)); enc.monster.currentHP -= dmg; addLog(state.player.name+' attacks for '+dmg); if(enc.monster.currentHP<=0){ finishBattle(true); return; } monsterTurn(); render(); }
+function playerDefend(){ state.player._defend = true; addLog(state.player.name+' defends'); monsterTurn(); state.player._defend = false; render(); }
+function playerSkill(){ const sk = state.player.skills[0]; if(!sk){ addLog('No skill'); return; } const power = sk.power || 8; state.currentEncounter.monster.currentHP -= power; addLog(state.player.name+' uses '+sk.name+' for '+power); if(state.currentEncounter.monster.currentHP<=0){ finishBattle(true); return; } monsterTurn(); render(); }
+
+function monsterTurn(){ const m = state.currentEncounter.monster; const atk = m.atk + Math.floor(Math.random()*4); let dmg = Math.max(1, atk - Math.floor(state.player.stats.CON/5)); if(state.player._defend) dmg = Math.floor(dmg/2); state.player.stats.HP -= dmg; addLog(m.name+' hits for '+dmg+'. HP:'+Math.max(0,state.player.stats.HP)); if(state.player.stats.HP<=0){ alert('Defeated. Returning to town.'); state.player.stats.HP = 50; state.player.gold = Math.max(0,state.player.gold-20); state.currentEncounter = null; nav('world'); } save(); }
+
+function finishBattle(v){ const enc = state.currentEncounter; if(!enc) return; if(v){ addLog('Victory'); const g = Math.floor((enc.monster.gold[0]+enc.monster.gold[1])/2); state.player.gold += g; const drops = []; (enc.monster.drops||[]).forEach(d=>{ if(Math.random() < d.chance){ state.player.inventory[d.item] = (state.player.inventory[d.item]||0)+1; drops.push(d.item); } }); if(enc.monster.behavior==='boss'){ const pool = (enc.monster.drops||[]).filter(x=>DATA.items[x.item] && (DATA.items[x.item].rarity==='rare' || DATA.items[x.item].rarity==='epic' || DATA.items[x.item].rarity==='legend')); if(pool.length){ const pick = pool[Math.floor(Math.random()*pool.length)].item; state.player.inventory[pick] = (state.player.inventory[pick]||0)+1; drops.push(pick); } } alert('You won! Gained '+g+'G. Loot: '+(drops.length?drops.join(', '):'None')); if(enc.tutorial){ if(!state.player.mapUnlocked.includes('area2')) state.player.mapUnlocked.push('area2'); alert('Tutorial complete! Area 2 unlocked.'); } state.currentEncounter=null; nav('world'); } else { state.currentEncounter=null; nav('world'); } save(); }
+
+function rollRange(r){ if(!r) return 0; if(Array.isArray(r)) return Math.floor(Math.random()*(r[1]-r[0]+1))+r[0]; return r; }
+
+function renderTown(container){ const town = state.location || 'City of Beginnings'; const h = document.createElement('h2'); h.textContent = 'Town - ' + town; container.appendChild(h); const shop = document.createElement('div'); shop.className='zone'; shop.innerHTML='<strong>Vendor</strong>'; const buy = document.createElement('button'); buy.textContent='Buy Items'; buy.onclick=()=>renderBuy(container); const sell = document.createElement('button'); sell.textContent='Sell Items'; sell.onclick=()=>renderSell(container); shop.appendChild(buy); shop.appendChild(sell); container.appendChild(shop); const back = document.createElement('button'); back.textContent='Back'; back.onclick=()=>nav('world'); container.appendChild(back); }
+
+function renderBuy(container){ container.innerHTML=''; renderHUD(container); const h = document.createElement('h2'); h.textContent='Vendor - Buy'; container.appendChild(h); const stock = ['Minor Health Potion','Minor Mana Potion','Herb','Iron Shard']; const list = document.createElement('div'); list.className='zone'; stock.forEach(name=>{ const def = DATA.items[name]||{}; const price = Math.ceil((def.base_price||10) * rarityMultiplier(def.rarity||'common')); const row = document.createElement('div'); row.className='small'; row.innerHTML = `${name} - ${price}G - ${def.desc||''}`; const b = document.createElement('button'); b.textContent='Buy'; b.onclick=()=>{ if(state.player.gold>=price){ state.player.gold -= price; state.player.inventory[name] = (state.player.inventory[name]||0)+1; alert('Bought '+name); save(); render(); } else alert('Not enough gold'); }; row.appendChild(b); list.appendChild(row); }); container.appendChild(list); const back = document.createElement('button'); back.textContent='Back'; back.onclick=()=>nav('town'); container.appendChild(back); }
+
+function renderSell(container){ container.innerHTML=''; renderHUD(container); const h = document.createElement('h2'); h.textContent='Vendor - Sell'; container.appendChild(h); const inv = state.player.inventory; const list = document.createElement('div'); list.className='inventory'; Object.keys(inv).forEach(name=>{ const qty = inv[name]; const def = DATA.items[name] || {base_price:1,rarity:'common'}; const sellPrice = Math.floor((def.base_price||1) * rarityMultiplier(def.rarity||'common') * 0.9); const slot = document.createElement('div'); slot.className='item-slot'; slot.innerHTML = `<div class='item-name'>${name} x${qty}</div><div class='small'>Sell price: ${sellPrice}G each</div>`; const s1 = document.createElement('button'); s1.textContent='Sell 1'; s1.onclick=()=>{ state.player.inventory[name]--; state.player.gold += sellPrice; if(state.player.inventory[name]<=0) delete state.player.inventory[name]; alert('Sold 1 '+name+' for '+sellPrice+'G'); save(); render(); }; const sa = document.createElement('button'); sa.textContent='Sell All'; sa.onclick=()=>{ const q = state.player.inventory[name]||0; state.player.gold += sellPrice * q; delete state.player.inventory[name]; alert('Sold all for '+(sellPrice*q)+'G'); save(); render(); }; slot.appendChild(s1); slot.appendChild(sa); list.appendChild(slot); }); container.appendChild(list); const back = document.createElement('button'); back.textContent='Back'; back.onclick=()=>nav('town'); container.appendChild(back); }
+
+function renderInventory(container){ container.innerHTML=''; renderHUD(container); const h = document.createElement('h2'); h.textContent='Inventory'; container.appendChild(h); const invDiv = document.createElement('div'); invDiv.className='inventory'; Object.keys(state.player.inventory).forEach(name=>{ const qty = state.player.inventory[name]; const def = DATA.items[name]||{}; const slot = document.createElement('div'); slot.className='item-slot'; slot.innerHTML = `<div class='item-name'>${name} x${qty}</div><div class='small'>${def.desc||''}${def.lore?(' — '+def.lore):''}</div>`; const use = document.createElement('button'); use.textContent='Use'; use.onclick=()=>{ if(def.type==='consumable'){ if(def.heal) state.player.stats.HP = Math.min(100 + state.player.level*10, state.player.stats.HP + def.heal); if(def.mana) state.player.stats.MP = Math.min(100 + state.player.level*5, state.player.stats.MP + def.mana); state.player.inventory[name]--; if(state.player.inventory[name]<=0) delete state.player.inventory[name]; alert('Used '+name); save(); render(); } else alert('Cannot use here'); }; slot.appendChild(use); invDiv.appendChild(slot); }); container.appendChild(invDiv); const back = document.createElement('button'); back.textContent='Back'; back.onclick=()=>nav('world'); container.appendChild(back); }
+
+function renderCharacter(container){ container.innerHTML=''; renderHUD(container); const h = document.createElement('h2'); h.textContent=state.player.name+' — '+(state.player.class||'No class'); container.appendChild(h); const statsDiv = document.createElement('div'); statsDiv.className='zone'; statsDiv.innerHTML='<strong>Stats</strong>'; Object.keys(state.player.stats).forEach(k=>{ const p=document.createElement('div'); p.className='small'; p.textContent=k+': '+state.player.stats[k]; statsDiv.appendChild(p); }); container.appendChild(statsDiv); const skills = document.createElement('div'); skills.className='zone'; skills.innerHTML='<strong>Skills</strong>'; (state.player.skills||[]).forEach(s=>{ const p=document.createElement('div'); p.className='small'; p.textContent=s.name+' - '+s.desc; skills.appendChild(p); }); container.appendChild(skills); const journal=document.createElement('div'); journal.className='zone'; journal.innerHTML='<strong>Journal</strong>'; (state.player.journal||[]).slice(-10).reverse().forEach(j=>{ const p=document.createElement('div'); p.className='small'; p.textContent='['+j.cred+'] '+j.text + (j.source?(' (Source: '+j.source+')'): ''); journal.appendChild(p); }); container.appendChild(journal); const back=document.createElement('button'); back.textContent='Back'; back.onclick=()=>nav('world'); container.appendChild(back); }
+
+function exportSave(){ const blob = new Blob([localStorage.getItem(SAVE_KEY)||'{}'], {type:'application/json'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='fantasy-v7-save.json'; a.click(); URL.revokeObjectURL(url); }
+function importSave(){ const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json'; inp.onchange=(e)=>{ const f=e.target.files[0]; const r=new FileReader(); r.onload=()=>{ try{ localStorage.setItem(SAVE_KEY, r.result); alert('Imported. Reloading.'); location.reload(); } catch(err){ alert('Invalid file'); } }; r.readAsText(f); }; inp.click(); }
+
+function renderDev(container){ container.innerHTML=''; renderHUD(container); const h=document.createElement('h2'); h.textContent='Dev Tools'; container.appendChild(h); const g=document.createElement('button'); g.textContent='Give 500G'; g.onclick=()=>{ state.player.gold += 500; save(); render(); }; container.appendChild(g); const l=document.createElement('button'); l.textContent='Level Up'; l.onclick=()=>{ state.player.level +=1; save(); render(); }; container.appendChild(l); const back=document.createElement('button'); back.textContent='Back'; back.onclick=()=>nav('world'); container.appendChild(back); }
+
+document.addEventListener('DOMContentLoaded', ()=>{ render(); });

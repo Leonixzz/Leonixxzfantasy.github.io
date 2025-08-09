@@ -1,0 +1,1 @@
+Open index.html to play. To publish to GitHub Pages upload contents and enable Pages.
